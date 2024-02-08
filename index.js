@@ -1,37 +1,53 @@
-import express from "express";
-import mongoose from "mongoose";
-import bodyParser from "body-parser";
-import cors from "cors";
-import dotenv from "dotenv";
-
-import userRouter from "./routes/User.routes.js";
-
-dotenv.config();
+import express from 'express';
+import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import { userRoute } from './routes/userRoute.js';
+import { residencyRoute } from './routes/residencyRoute.js';
+import Stripe from "stripe";
 
 
 
-const port = process.env.PORT || 8080;
+
+dotenv.config()
+
+
 const app = express();
 
+const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(express.json())
+app.use(cookieParser())
+app.use(cors())
 
+app.listen(PORT, ()=> {
+    console.log(`Server is running on port ${PORT}`);
+});
 
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
 
-mongoose
-  .connect(process.env.MONGO_DB_URL, {
-    useNewUrlParser: true,
-  })
-  .then(() => {
-    console.log("Successfully connected to MongoDB");
-  app.listen(port , ()=>console.log('surver running on port ' + 8080))
-
-  })
-  .catch((error) => {
-    console.log("MongoDB connection failed", error);
+app.post('/create-payment-intent', async (req, res) => {
+    try {
+      const { amount  , currency } = req.body;
+  
+      const paymentIntent = await stripe.paymentIntents.create({
+  
+          amount,
+         currency ,
+  
+         payment_method_types: ['card'],
+         description: 'Payment Request From CloudLumous Pvt, Ltd',
+         receipt_email : 'vikashvermacom92@gmail.com',      
+      });
+  
+  
+      res.status(200).json({ clientSecret: paymentIntent.client_secret });
+  
+    } catch (error) {
+      console.error('Error creating Payment Intent:', error.message);
+      res.status(500).json({ error: 'Error creating Payment Intent : ' + error.message });
+    }
   });
 
-
-app.use("/user", userRouter);
+app.use('/api/user', userRoute)
+app.use("/api/residency", residencyRoute)
